@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Poly Quiz Order - Ordina la lista!</title>
+  <style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: linear-gradient(135deg, #0f0f0f 0%, #1a1a2e 100%);
+  min-height: 100vh;
+  color: #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+}
+
+.container { width: 100%; max-width: 800px; margin: 0 auto; }
+
+.header { text-align: center; margin-bottom: 40px; }
+h1 {
+  font-size: 2.5em;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 10px;
+  font-weight: 700;
+}
+.subtitle { color: #888; font-size: 1.1em; margin-bottom: 30px; }
+
+.game-info {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 20px;
+  border-radius: 15px;
+  margin-bottom: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.attempts-counter { font-size: 1em; text-align: center; margin-bottom: 10px; color: #667eea; }
+.progress-bar { display: flex; justify-content: center; gap: 5px; }
+.progress-segment { width: 30px; height: 10px; border-radius: 3px; background: rgba(255,255,255,0.2); }
+.progress-segment.filled { background: #667eea; }
+
+.games-list {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 15px;
+  padding: 20px;
+  margin-bottom: 30px;
+  min-height: 400px;
+  position: relative;
+}
+.games-list .top-label, .games-list .bottom-label {
+  position: absolute; font-size: 0.8em; color: #aaa;
+}
+.games-list .top-label { top: -20px; right: 10px; }
+.games-list .bottom-label { bottom: -20px; right: 10px; }
+
+.game-item {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 10px 15px;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  cursor: grab;
+  display: flex; align-items: center; gap: 10px;
+  transition: all 0.3s ease;
+  position: relative;
+}
+.game-item.dragging { opacity: 0.5; cursor: grabbing; }
+.game-item.drag-over { border: 2px dashed #667eea; }
+.game-item.locked {
+  background: rgba(40, 40, 40, 0.9) !important;
+  opacity: 0.6 !important;
+  cursor: not-allowed;
+  border-color: #4CAF50 !important;
+}
+.game-item.locked::after {
+  content: '✓';
+  position: absolute;
+  right: 15px;
+  color: #4CAF50;
+  font-size: 1.2em;
+  font-weight: bold;
+}
+
+.game-name { font-weight: 500; font-size: 1em; }
+.hint { padding: 3px 8px; border-radius: 5px; font-size: 0.8em; font-weight: bold; margin-left: auto; }
+.hint.higher { background: rgba(255, 152, 0, 0.2); color: #FFA726; }
+.hint.lower { background: rgba(33, 150, 243, 0.2); color: #42A5F5; }
+
+.confirm-btn, .giveup-btn {
+  padding: 12px 24px; 
+  border: none; 
+  border-radius: 10px;
+  font-size: 1em; 
+  font-weight: 600; 
+  cursor: pointer; 
+  margin: 0 8px;
+  transition: all 0.3s ease;
+}
+.confirm-btn { 
+  background: linear-gradient(135deg, #667eea, #764ba2); 
+  color: white; 
+}
+.confirm-btn:hover {
+  background: linear-gradient(135deg, #5a6fd8, #6a4190);
+  transform: translateY(-2px);
+}
+.confirm-btn:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+.giveup-btn { 
+  background: linear-gradient(135deg, #ff4e50, #f9d423); 
+  color: white; 
+}
+.giveup-btn:hover {
+  background: linear-gradient(135deg, #e6444a, #e0c020);
+  transform: translateY(-2px);
+}
+.button-container { 
+  text-align: center; 
+  margin-top: 20px; 
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 1000; justify-content: center; align-items: center; }
+.modal.show { display: flex; }
+.modal-content { background: #16213e; padding: 30px; border-radius: 20px; max-width: 500px; width: 90%; }
+
+.score { text-align: center; margin-bottom: 20px; }
+.score-grade { font-size: 2em; font-weight: bold; background: linear-gradient(135deg, #4CAF50, #8BC34A); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+.final-list {
+  margin-top: 20px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.final-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  font-size: 0.95em;
+}
+
+.final-item span:first-child {
+  font-weight: 500;
+  color: #fff;
+}
+
+.final-item span:last-child {
+  font-weight: bold;
+  color: #667eea;
+}
+
+canvas#confettiCanvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2000; }
+
+.game-img {
+  width: 50px;
+  height: 50px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+/* Animazioni corrette */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-8px); }
+  20%, 40%, 60%, 80% { transform: translateX(8px); }
+}
+
+@keyframes correctGlow {
+  0% {
+    box-shadow: 0 0 0 rgba(76, 175, 80, 0);
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  25% {
+    box-shadow: 0 0 20px rgba(76, 175, 80, 0.8), 0 0 40px rgba(76, 175, 80, 0.4);
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.4), rgba(139, 195, 74, 0.3));
+    border-color: #4CAF50;
+  }
+  75% {
+    box-shadow: 0 0 15px rgba(76, 175, 80, 0.6), 0 0 30px rgba(76, 175, 80, 0.3);
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.3), rgba(139, 195, 74, 0.2));
+    border-color: #4CAF50;
+  }
+  100% {
+    box-shadow: 0 0 0 rgba(76, 175, 80, 0);
+    background: rgba(40, 40, 40, 0.9);
+    border-color: #4CAF50;
+    opacity: 0.6;
+  }
+}
+
+.shake {
+  animation: shake 0.6s ease-in-out;
+}
+
+.correct-glow {
+  animation: correctGlow 2s ease-in-out forwards;
+}
+  </style>
+</head>
+<body>
+  <canvas id="confettiCanvas"></canvas>
+  <div class="container">
+    <div class="header">
+      <h1>Poly Quiz Order</h1>
+      <p class="subtitle">Ordina i roguelike dal più apprezzato al meno apprezzato su Steam!</p>
+    </div>
+
+    <div class="game-info">
+      <div class="attempts-counter">
+        Tentativi: <span id="attempts">0</span> / <span id="maxAttempts">6</span>
+      </div>
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+
+    <div class="games-list" id="gamesList">
+      <span class="top-label">Più valutato</span>
+      <span class="bottom-label">Meno valutato</span>
+    </div>
+
+    <div class="button-container">
+      <button class="confirm-btn" onclick="checkOrder()">Conferma Ordine</button>
+      <button class="giveup-btn" onclick="showResults(true)">Mostra Soluzione</button>
+    </div>
+  </div>
+
+  <div class="modal" id="resultModal">
+    <div class="modal-content">
+      <div class="score">
+        <div class="score-grade" id="scoreGrade">Risultato</div>
+        <p id="finalMessage"></p>
+      </div>
+      <div class="final-list"><div id="finalList"></div></div>
+      <button class="confirm-btn" onclick="resetGame()">Gioca Ancora</button>
+    </div>
+  </div>
+
+  <script>
+const gamesData = [
+  { name: "9 Kings", rating: 90.39 },
+  { name: "Ascendant", rating: 70.98 },
+  { name: "Backpack Battles", rating: 88.95 },
+  { name: "Become the Moon", rating: 74.7 },
+  { name: "Berserk or Die", rating: 71.63 },
+  { name: "Blue Prince", rating: 84.44 },
+  { name: "Desktop Survivors 98", rating: 89.88 },
+  { name: "Drop Duchy", rating: 85.62 },
+  { name: "Dungeons & Degenerate Gamblers", rating: 78.3 },
+  { name: "GUNTOUCHABLES", rating: 83.14 },
+  { name: "He is Coming", rating: 80.08 },
+  { name: "Hell Clock", rating: 80.14 },
+  { name: "Heroes of Hammerwatch II", rating: 82.49 },
+  { name: "Kill the Brickman", rating: 70.47 },
+  { name: "Lost in Random The Eternal Die", rating: 82.53 },
+  { name: "Magicraft", rating: 89.97 },
+  { name: "Peglin", rating: 81.74 },
+  { name: "Raining Blood Hellfire", rating: 84.57 },
+  { name: "Rogue Loops", rating: 71.97 },
+  { name: "Savara", rating: 83.25 },
+  { name: "Sol Cesto", rating: 90.18 },
+  { name: "SWORN", rating: 79.32 },
+  { name: "Temtem Swarm", rating: 77.44 },
+  { name: "The King is Watching", rating: 83.09 },
+  { name: "The Spell Brigade", rating: 82.57 },
+  { name: "TypInc", rating: 77.06 },
+  { name: "Tyrants Realm", rating: 80.77 },
+  { name: "Wordatro!", rating: 78.76 },
+  { name: "Zombieville", rating: 90.15 }
+];
+
+let currentOrder = [];
+let lockedPositions = new Set();
+let attempts = 0;
+let hints = {};
+const maxAttempts = 6;
+let draggedElement = null;
+let isAnimating = false;
+
+function initializeGame() {
+  currentOrder = [...gamesData].sort(() => Math.random() - 0.5);
+  lockedPositions.clear();
+  hints = {};
+  attempts = 0;
+  isAnimating = false;
+  document.getElementById('attempts').textContent = attempts;
+  document.getElementById('maxAttempts').textContent = maxAttempts;
+  updateProgress();
+  renderGamesList();
+}
+
+function updateProgress() {
+  const bar = document.getElementById('progressBar');
+  bar.innerHTML = '';
+  for (let i = 0; i < maxAttempts; i++) {
+    const seg = document.createElement('div');
+    seg.className = 'progress-segment';
+    if (i < attempts) {
+      seg.classList.add('filled');
+      if (maxAttempts - attempts <= 2) {
+        seg.style.background = "red";
+      }
+    }
+    bar.appendChild(seg);
+  }
+}
+
+function renderGamesList() {
+  const gamesList = document.getElementById('gamesList');
+  gamesList.querySelectorAll('.game-item').forEach(e => e.remove());
+
+  currentOrder.forEach((game, index) => {
+    const gameItem = document.createElement('div');
+    gameItem.className = 'game-item';
+    gameItem.draggable = !lockedPositions.has(index);
+    gameItem.dataset.index = index;
+    gameItem.dataset.gameName = game.name;
+
+    // Applica lo stato locked se necessario
+    if (lockedPositions.has(index)) {
+      gameItem.classList.add('locked');
+      gameItem.draggable = false;
+    }
+
+    const posSpan = document.createElement('span');
+    posSpan.textContent = (index + 1) + ".";
+    gameItem.appendChild(posSpan);
+
+    // Immagine del gioco
+    const img = document.createElement('img');
+    img.className = "game-img";
+    img.src = `pics/${game.name}.jpg`;
+    img.alt = game.name;
+    img.onerror = function() {
+      // Fallback se l'immagine non esiste
+      this.style.display = 'none';
+    };
+    gameItem.appendChild(img);
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'game-name';
+    nameSpan.textContent = game.name;
+    gameItem.appendChild(nameSpan);
+
+    // Aggiungi hint se presente e non bloccato
+    if (hints[game.name] && !lockedPositions.has(index)) {
+      const hintSpan = document.createElement('span');
+      hintSpan.className = `hint ${hints[game.name].type}`;
+      hintSpan.textContent = hints[game.name].type === 'higher'
+        ? '↑ Più alto (del #' + hints[game.name].pos + ')'
+        : '↓ Più basso (del #' + hints[game.name].pos + ')';
+      gameItem.appendChild(hintSpan);
+    }
+
+    // Event listeners solo se non bloccato
+    if (!lockedPositions.has(index)) {
+      gameItem.addEventListener('dragstart', handleDragStart);
+      gameItem.addEventListener('dragend', handleDragEnd);
+      gameItem.addEventListener('dragover', handleDragOver);
+      gameItem.addEventListener('drop', handleDrop);
+      gameItem.addEventListener('dragleave', handleDragLeave);
+    }
+
+    gamesList.appendChild(gameItem);
+  });
+}
+
+function handleDragStart(e) {
+  if (isAnimating) {
+    e.preventDefault();
+    return;
+  }
+  draggedElement = this;
+  this.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDragEnd(e) { 
+  this.classList.remove('dragging'); 
+}
+
+function handleDragOver(e) {
+  e.preventDefault();
+  if (this !== draggedElement && !this.classList.contains('locked')) {
+    this.classList.add('drag-over');
+  }
+}
+
+function handleDragLeave(e) { 
+  this.classList.remove('drag-over'); 
+}
+
+function handleDrop(e) {
+  e.stopPropagation();
+  this.classList.remove('drag-over');
+  if (draggedElement !== this && !this.classList.contains('locked') && !isAnimating) {
+    const draggedIndex = parseInt(draggedElement.dataset.index);
+    const targetIndex = parseInt(this.dataset.index);
+    
+    // Scambia solo se nessuna delle posizioni è bloccata
+    if (!lockedPositions.has(draggedIndex) && !lockedPositions.has(targetIndex)) {
+      const temp = currentOrder[draggedIndex];
+      currentOrder[draggedIndex] = currentOrder[targetIndex];
+      currentOrder[targetIndex] = temp;
+      renderGamesList();
+    }
+  }
+}
+
+function checkOrder() {
+  if (isAnimating) return;
+  
+  isAnimating = true;
+  
+  // Disabilita il pulsante durante l'animazione
+  const confirmBtn = document.querySelector('.confirm-btn');
+  const giveupBtn = document.querySelector('.giveup-btn');
+  confirmBtn.disabled = true;
+  giveupBtn.disabled = true;
+  
+  attempts++;
+  document.getElementById('attempts').textContent = attempts;
+  updateProgress();
+
+  const correctOrder = [...gamesData].sort((a, b) => b.rating - a.rating);
+  hints = {};
+  let allCorrect = true;
+  const gameElements = document.querySelectorAll('.game-item');
+  let newLockedPositions = new Set([...lockedPositions]);
+
+  // Prima fase: identifica elementi corretti e applica animazioni
+  currentOrder.forEach((game, index) => {
+    const correctIndex = correctOrder.findIndex(g => g.name === game.name);
+    const gameElement = gameElements[index];
+
+    if (index === correctIndex && !lockedPositions.has(index)) {
+      // Elemento corretto: illumina e blocca
+      gameElement.classList.add('correct-glow');
+      newLockedPositions.add(index);
+    } else if (index !== correctIndex) {
+      allCorrect = false;
+      hints[game.name] = { 
+        type: correctIndex < index ? 'higher' : 'lower', 
+        pos: index + 1 
+      };
+      if (!lockedPositions.has(index)) {
+        gameElement.classList.add('shake');
+      }
+    }
+  });
+
+  // Dopo le animazioni, aggiorna lo stato
+  setTimeout(() => {
+    lockedPositions = newLockedPositions;
+    
+    // Rimuovi le classi di animazione e riabilita controlli
+    gameElements.forEach(el => {
+      el.classList.remove('shake', 'correct-glow');
+    });
+    
+    confirmBtn.disabled = false;
+    giveupBtn.disabled = false;
+    isAnimating = false;
+
+    if (allCorrect) {
+      setTimeout(() => showResults(false, true), 500);
+    } else if (attempts >= maxAttempts) {
+      setTimeout(() => showResults(false, false, true), 500);
+    } else {
+      // Re-render per mostrare gli hint
+      renderGamesList();
+    }
+  }, 2200);
+}
+
+function getScoreGrade(attempts) {
+  if (attempts <= 3) return "Eccellente!";
+  if (attempts <= 4) return "Ottimo!";
+  if (attempts <= 5) return "Buono!";
+  return "Completato con successo!";
+}
+
+function showResults(gaveUp = false, won = false, lost = false) {
+  const modal = document.getElementById('resultModal');
+  const scoreGrade = document.getElementById('scoreGrade');
+  const finalMessage = document.getElementById('finalMessage');
+  const finalList = document.getElementById('finalList');
+  finalList.innerHTML = '';
+
+  if (won) {
+    scoreGrade.textContent = getScoreGrade(attempts);
+    scoreGrade.style.background = "linear-gradient(135deg, #4CAF50, #8BC34A)";
+    scoreGrade.style.webkitBackgroundClip = "text";
+    scoreGrade.style.webkitTextFillColor = "transparent";
+    finalMessage.textContent = "Hai completato il quiz in " + attempts + " tentativi!";
+    launchConfetti();
+  } else if (lost) {
+    scoreGrade.textContent = "Hai perso...";
+    scoreGrade.style.background = "none";
+    scoreGrade.style.webkitTextFillColor = "initial";
+    scoreGrade.style.color = "#ff4e50"; 
+    finalMessage.textContent = "Hai esaurito i tentativi disponibili.";
+  } else if (gaveUp) {
+    scoreGrade.textContent = "Soluzione:";
+    scoreGrade.style.background = "none";
+    scoreGrade.style.webkitTextFillColor = "initial";
+    scoreGrade.style.color = "#ff4e50";
+    finalMessage.textContent = "Ti sei arreso dopo " + attempts + " tentativi.";
+  }
+
+  const correctOrder = [...gamesData].sort((a, b) => b.rating - a.rating);
+  const maxRating = correctOrder[0].rating;
+  const minRating = correctOrder[correctOrder.length - 1].rating;
+
+  correctOrder.forEach((game, i) => {
+    const item = document.createElement('div');
+    item.className = 'final-item';
+
+    const ratio = (game.rating - minRating) / (maxRating - minRating);
+    const hue = 0 + (120 - 0) * ratio;
+    const color = `hsl(${hue}, 80%, 55%)`;
+
+    item.innerHTML = `
+      <span>${i + 1}. ${game.name}</span>
+      <span style="color:${color}; font-weight:bold;">${game.rating}%</span>
+    `;
+    finalList.appendChild(item);
+  });
+
+  modal.classList.add('show');
+}
+
+function resetGame() {
+  document.getElementById('resultModal').classList.remove('show');
+  initializeGame();
+}
+
+function launchConfetti() {
+  const canvas = document.getElementById('confettiCanvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth; 
+  canvas.height = window.innerHeight;
+  let particles = [];
+  for (let i = 0; i < 150; i++) {
+    particles.push({
+      x: canvas.width / 2, 
+      y: canvas.height / 2,
+      dx: (Math.random() - 0.5) * 8, 
+      dy: (Math.random() - 0.5) * 8 - 2,
+      color: `hsl(${Math.random() * 360},100%,50%)`, 
+      size: Math.random() * 6 + 2,
+      gravity: Math.random() * 0.2 + 0.1
+    });
+  }
+  let duration = 180;
+  function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    particles.forEach(p => {
+      p.x += p.dx; 
+      p.y += p.dy; 
+      p.dy += p.gravity;
+      ctx.fillStyle = p.color; 
+      ctx.fillRect(p.x, p.y, p.size, p.size);
+    });
+    if (duration-- > 0) requestAnimationFrame(animate);
+    else ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+  animate();
+}
+
+// Inizializza il gioco
+initializeGame();
+  </script>
+</body>
+</html>
